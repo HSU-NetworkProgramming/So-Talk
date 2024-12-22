@@ -24,9 +24,9 @@ public class ChattingRoomPanel extends JPanel {
 
     // ---- 번역 관련 필드 ----
     private GoogleTranslate googleTranslate;
-    private String targetLanguage = "ko";   // 기본 번역 언어: "ko" (한국어)
+    private String targetLanguage = "ko"; // 기본 번역 언어: "ko"
 
-    // 이미지 리소스 (경로는 필요시 환경에 맞게 수정)
+    // 이미지 리소스 (경로는 필요 시 수정)
     private ImageIcon translateImg = new ImageIcon("src/assets/Translate.png");
     private ImageIcon languageImg  = new ImageIcon("src/assets/Language.png");
     private ImageIcon emoticonImg  = new ImageIcon("src/assets/Emoticon.png");
@@ -58,9 +58,11 @@ public class ChattingRoomPanel extends JPanel {
         // 2) 중앙(채팅 메시지) 영역
         // --------------------
         chatContainer = new JPanel();
+        // BoxLayout으로 세로 방향 나열
         chatContainer.setLayout(new BoxLayout(chatContainer, BoxLayout.Y_AXIS));
         chatContainer.setBackground(new Color(0xB9CEE0));
-        chatContainer.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5)); // 좌우 여백
+        // 상하좌우 여백
+        chatContainer.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         scrollPane = new JScrollPane(chatContainer);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -90,14 +92,14 @@ public class ChattingRoomPanel extends JPanel {
             public void changedUpdate(DocumentEvent e) { updateSendButtonColor(); }
         });
 
-        // (첫 번째 줄) 입력창만 배치
+        // 첫 번째 줄에 입력창만 배치
         inputRow.add(messageInputField, BorderLayout.CENTER);
 
         // (3-2) 두 번째 줄: 아이콘들(왼쪽) + 전송 버튼(오른쪽)
         JPanel iconsRow = new JPanel(new BorderLayout());
         iconsRow.setBackground(Color.WHITE);
 
-        // 왼쪽 아이콘 패널 (FlowLayout)
+        // 왼쪽 아이콘 패널
         JPanel leftIconsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         leftIconsPanel.setBackground(Color.WHITE);
 
@@ -132,8 +134,6 @@ public class ChattingRoomPanel extends JPanel {
             System.out.println("[Client] 번역 언어 변경 -> ja");
         });
         languageMenu.add(menuItemJa);
-
-        // 필요하다면 다른 언어도 추가
 
         languageButton.addActionListener(e -> {
             languageMenu.show(languageButton, 0, languageButton.getHeight());
@@ -172,24 +172,23 @@ public class ChattingRoomPanel extends JPanel {
 
         iconsRow.add(leftIconsPanel, BorderLayout.WEST);
 
-        // --- 전송 버튼 (오른쪽) ---
+        // 전송 버튼 (오른쪽)
         sendButton = new JButton("전송");
         sendButton.setPreferredSize(new Dimension(80, 40));
         sendButton.setFont(new Font("Arial", Font.PLAIN, 14));
-        // 초기상태: 입력창 비어있으므로 회색
-        sendButton.setBackground(Color.LIGHT_GRAY);
-        sendButton.setForeground(Color.BLACK);
+        sendButton.setBackground(Color.WHITE);
+        sendButton.setContentAreaFilled(true);
+        sendButton.setOpaque(true);
         // 클릭 시 sendMessage()
         sendButton.addActionListener(e -> sendMessage());
 
         iconsRow.add(sendButton, BorderLayout.EAST);
 
-        // bottomPanel에 두 줄 추가
         bottomPanel.add(inputRow);
         bottomPanel.add(iconsRow);
 
         // --------------------
-        // 메인 패널에 컴포넌트 배치
+        // 메인 패널에 배치
         // --------------------
         add(topPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
@@ -205,15 +204,15 @@ public class ChattingRoomPanel extends JPanel {
         button.setFont(new Font("Arial", Font.PLAIN, 16));
     }
 
-    // (1) 전송 버튼 색상 변경 로직
+    // 전송 버튼 색상 변경 -> 전송 버튼 색이 아니라 주변 색이 바뀜.. 추후 수정 필요
     private void updateSendButtonColor() {
         String text = messageInputField.getText().trim();
         if (text.isEmpty()) {
             // 비어있으면 회색
-            sendButton.setBackground(Color.LIGHT_GRAY);
+//            sendButton.setBackground(Color.LIGHT_GRAY);
         } else {
             // 텍스트가 있으면 노란색(FFE700)
-            sendButton.setBackground(new Color(0xFFE700));
+//            sendButton.setBackground(new Color(0xFFE700));
         }
     }
 
@@ -236,23 +235,50 @@ public class ChattingRoomPanel extends JPanel {
         }
     }
 
-    // 채팅 메시지를 화면에 추가
+    /**
+     * 채팅 메시지를 화면에 추가
+     * - 말풍선 아래 번역 버튼
+     * - 번역하면 같은 말풍선 아래줄에 번역 결과 표시
+     * - 각 말풍선 사이 5px 간격 -> 엉엉 이상해
+     */
     public void updateChattingText(String sender, String message, boolean isMyMessage) {
-        // 메시지가 10개 초과 시 오래된 것 제거 (기존 로직 유지)
-        if (!(chatContainer.getLayout() instanceof GridLayout)) {
-            chatContainer.setLayout(new GridLayout(10, 1, 0, 9));
-        }
+        // 말풍선
+        JPanel messageBubble = createMessageBubble(sender, message, isMyMessage);
 
-        // (2) 말풍선 패널 생성
-        // 기존: 메시지 하나당 wrapper + messagePanel + (번역버튼)
-        // → 번역 결과를 같은 말풍선 아래줄에 표시하기 위해
-        //    'textContainer' 라는 서브 패널(BoxLayout) 추가
+        // (A) 말풍선을 감싸는 패널 bubbleWrapper
+        // -> 아래쪽에 항상 5px 간격 주기
+        JPanel bubbleWrapper = new JPanel();
+        bubbleWrapper.setLayout(new BoxLayout(bubbleWrapper, BoxLayout.X_AXIS));
+        // 말풍선 아래 5px 간격을 위해 border 사용
+        bubbleWrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+        bubbleWrapper.setOpaque(false);
+
+        bubbleWrapper.add(messageBubble);
+        chatContainer.add(bubbleWrapper);
+
+        // 스크롤 항상 최하단 이동
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        });
+
+        chatContainer.revalidate();
+        chatContainer.repaint();
+    }
+
+    /**
+     * 말풍선을 만들어 반환
+     */
+    private JPanel createMessageBubble(String sender, String message, boolean isMyMessage) {
+        // 말풍선 자체
         JPanel messagePanel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
+                // 안티에일리어싱
                 Graphics2D g2d = (Graphics2D) g;
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // 배경색(내 메시지: 노란색 / 상대 메시지: 흰색)
                 g2d.setColor(isMyMessage ? new Color(0xFFEB3B) : Color.WHITE);
                 g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
             }
@@ -260,7 +286,7 @@ public class ChattingRoomPanel extends JPanel {
         messagePanel.setOpaque(false);
         messagePanel.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
-        // 말풍선 내부에 여러 줄(원본 + 번역결과 등)을 담을 서브패널
+        // 말풍선 안에 여러 줄(원본 + 번역) 담을 컨테이너
         JPanel textContainer = new JPanel();
         textContainer.setLayout(new BoxLayout(textContainer, BoxLayout.Y_AXIS));
         textContainer.setOpaque(false);
@@ -271,10 +297,9 @@ public class ChattingRoomPanel extends JPanel {
         messageLabel.setMaximumSize(new Dimension(300, Integer.MAX_VALUE));
         textContainer.add(messageLabel);
 
-        // 말풍선 내부에 textContainer 배치
         messagePanel.add(textContainer, BorderLayout.CENTER);
 
-        // 번역 버튼 (말풍선 오른쪽)
+        // 번역 버튼
         JButton translateButton = new JButton(
                 new ImageIcon(translateImg.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH))
         );
@@ -282,32 +307,29 @@ public class ChattingRoomPanel extends JPanel {
         translateButton.setContentAreaFilled(false);
         translateButton.setBorderPainted(false);
         translateButton.setFocusPainted(false);
-
-        // (2) 번역 버튼 클릭 -> 번역 텍스트를 "같은 말풍선 아래줄"에 추가
         translateButton.addActionListener(e -> {
             try {
+                // 번역
                 String translatedText = googleTranslate.translate(message, targetLanguage);
                 System.out.println("[Client] 번역 결과 (" + targetLanguage + "): " + translatedText);
 
-                // 새 라벨을 만들어, 같은 말풍선의 textContainer 아래에 추가
+                // 말풍선 아래줄에 번역 결과 추가
                 JLabel translationLabel = new JLabel("<html>"
                         + translatedText.replaceAll("\n", "<br>")
                         + "</html>");
-                translationLabel.setForeground(Color.GRAY);  // 예: 회색으로 표시
-                // 살짝 위쪽 여백 주기
+                translationLabel.setForeground(Color.GRAY);
                 translationLabel.setBorder(BorderFactory.createEmptyBorder(3, 0, 0, 0));
 
                 textContainer.add(translationLabel);
                 textContainer.revalidate();
                 textContainer.repaint();
-
             } catch (Exception ex) {
                 System.out.println("[Client] 번역 중 오류 발생: " + ex.getMessage());
                 ex.printStackTrace();
             }
         });
 
-        // wrapper: 번역 버튼 + 말풍선 패널
+        // wrapper 패널: 말풍선 + 번역 버튼
         JPanel wrapper = new JPanel(new FlowLayout(isMyMessage ? FlowLayout.RIGHT : FlowLayout.LEFT, 5, 0));
         wrapper.setOpaque(false);
 
@@ -319,23 +341,7 @@ public class ChattingRoomPanel extends JPanel {
             wrapper.add(translateButton);
         }
 
-        // 채팅창 10개 유지 로직
-        int currentComponentCount = chatContainer.getComponentCount();
-        if (currentComponentCount < 10) {
-            chatContainer.add(wrapper, currentComponentCount);
-        } else {
-            chatContainer.remove(0);
-            chatContainer.add(wrapper, 9);
-        }
-
-        // 스크롤을 항상 최하단
-        SwingUtilities.invokeLater(() -> {
-            JScrollBar vertical = scrollPane.getVerticalScrollBar();
-            vertical.setValue(vertical.getMaximum());
-        });
-
-        chatContainer.revalidate();
-        chatContainer.repaint();
+        return wrapper;
     }
 
     // 메시지 전송
@@ -347,10 +353,8 @@ public class ChattingRoomPanel extends JPanel {
         }
 
         try {
-            // 내 메시지 UI 업데이트
             updateChattingText("Me", message, true);
 
-            // 서버로 메시지 전송
             if (targetId != null) {
                 System.out.println("[Client] 메시지 전송: 대상 ID = " + targetId + ", 메시지 = " + message);
                 outputStream.writeUTF("MESSAGE_TO_ID:" + targetId + ":" + message);
@@ -361,7 +365,7 @@ public class ChattingRoomPanel extends JPanel {
             // 입력 필드 초기화
             messageInputField.setText("");
         } catch (IOException e) {
-            System.out.println("[Client] 메시지를 전송하는 중 오류가 발생했습니다.");
+            System.out.println("[Client] 메시지 전송 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
         }
     }
